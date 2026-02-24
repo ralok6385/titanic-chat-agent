@@ -152,22 +152,30 @@ if final_query:
     with st.chat_message("assistant"):
         with st.spinner("Analyzing Voyage Data..."):
             try:
-                res = requests.post(f"{API_URL}/ask", json={"question": final_query}, timeout=15)
-                if res.status_code == 200:
-                    data = res.json()
-                    ans = data.get("answer", "I couldn't find a specific answer for that.")
-                    chart_path = data.get("chart")
-                    
-                    st.markdown(ans)
-                    if chart_path and os.path.exists(chart_path):
-                        st.image(chart_path)
-                    
-                    # Store to history
-                    st.session_state.messages.append({"role": "assistant", "content": ans, "chart": chart_path})
-                else:
-                    st.error(f"Error {res.status_code}: The AI agent is currently offline.")
+                # Attempt API call
+                try:
+                    res = requests.post(f"{API_URL}/ask", json={"question": final_query}, timeout=15)
+                    if res.status_code == 200:
+                        data = res.json()
+                        ans = data.get("answer")
+                        chart_path = data.get("chart")
+                    else:
+                        raise ConnectionError("API Status not 200")
+                except Exception:
+                    # Fallback: Call agent logic directly (Perfect for Streamlit Cloud)
+                    from agent import answer_question
+                    result = answer_question(final_query)
+                    ans = result.get("answer")
+                    chart_path = result.get("chart")
+                
+                st.markdown(ans)
+                if chart_path and os.path.exists(chart_path):
+                    st.image(chart_path)
+                
+                # Store to history
+                st.session_state.messages.append({"role": "assistant", "content": ans, "chart": chart_path})
             except Exception as e:
-                st.error("Connection Error: Could not reach the AI backend.")
+                st.error(f"Engine Error: {str(e)}")
 
 # Empty State Help
 if not st.session_state.messages:
